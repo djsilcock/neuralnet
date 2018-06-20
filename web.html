@@ -5,24 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <meta name="robots" content="index, follow">
 <link href="https://fonts.googleapis.com/css?family=Fira+Sans+Extra+Condensed:400,700|Noto+Serif:400,400i,700" rel="stylesheet">
-<title>Alan Hope ASAi</title>
-<link href="/css/jet5-dark.css" rel="stylesheet" type="text/css">
+<title>NeuralNet</title>
 <script src="https://use.fontawesome.com/releases/v5.0.10/js/all.js" defer></script>
 </head>
 <body>
 <div class="content">
 <div style="max-width:800px; margin:0 auto; ">
-<br />
-<h1 style="letter-spacing:-.1em;">a<span style="color:#777;">lan</span>h<span style="color:#777;">ope</span></h1>
-<br />
-<a class="menu" href="index.php">Home</a>, <a class="menu" href="music.php">Music</a>, <a class="menu" href="photography.php">Photography</a>, <a class="menu" href="hifi.php">Hifi</a>, <a class="menu" href="webdesign.php">Web Design</a>, <a style="color:Gold; " href="coding.php">Coding</a>, <a class="menu" href="simulator.php">Simulator</a>, <a class="menu" href="chess.php">Chess</a>, <a class="menu" href="synthesizers.php">Synthesizers</a>, <a class="menu" href="anaesthesia.php">Anaesthesia</a>
-<hr />
-<a class="menu" href="coding.php" >Coding</a>, <a class="menu" href="coding_reference.php" >Reference</a>, <a class="menu" href="coding_xor.php" >XOR</a>, <a style="color:Gold; " href="coding_asai.php" >ASAi</a>
-</div>
-<div style="max-width:800px; margin:0 auto; ">
 <h2>ASAi</h2>
 <h3>Anaesthesia Scoring with Artificial Intelligence</h3>
 <hr />
+<label for=displayselector>Display type:</label>
+<select id=displayselector onchange="changedisplay(this)">
+<option value=design>Design mode</option>
+<option value=training>Training mode</option>
+<option value=calculate>Calculate mode</option>
+</select>
+<hr>
 <div style="float:right; max-width:350px; margin-bottom:40px; ">
 <h4 style="text-align:center; margin-bottom:12px; ">The Neural Network</h4>
 <div style="text-align:center;">
@@ -35,17 +33,123 @@ OUTPUT(S)
 <canvas id="opCanvas" width="600" height="100" style="width:100%;"></canvas>
 <style>
 .gpoint{background:#fdd; border-top:3px solid Red; vertical-align:bottom; width:1px; }
+input:invalid {
+  border: 2px solid red;
+}
+textarea {width: 100%;}
+body {font-family: Arial, Helvetica, sans-serif;}
+
 </style>
 
-<script type="javascript/worker">
-var topology = [16,13,6];
-var inputs=16;
-var outputs=topology[topology.length-1];
-var trainingdata=[];
-var learningrate = 0.8;
-var momentum = 0.9;
-var sharpness = 1;
-var stoperror = 0.0001;
+
+<style id=trainingmode disabled>
+.trainingsettings {display:none;}
+.training {display:block;}
+</style>
+<style id=calculatemode disabled>
+.trainingsettings {display:none;}
+.training {display:none;}
+</style>
+<style id=designmode>
+.trainingsettings {display:block;}
+.training {display:block;}
+</style>
+
+
+
+<div class=trainingsettings>
+<button type=button id="trained" onclick="trainMe()" >Train Me</button>
+&nbsp;&nbsp;
+Epochs: <span id="epochs">0</span>
+&nbsp;&nbsp;
+Output error: <span id="meanerror"></span>
+<div id="trainedResults"></div>
+</div>
+</div>
+　
+<h4 style="margin-bottom:12px; ">ASAi-Risk Scoring</h4>
+
+<div class=trainingsettings>　
+<h5>ANN Settings</h5>
+<table>
+<tr class="parameters"><td><label for=topology>Topology</label></td><td><input id=topology required pattern="[0-9][,0-9]*[0-9]" title="Comma-separated list of numbers" ></td></tr>
+<tr class="parameters"><td><label for=learningrate>Learning rate</label></td><td><input id=learningrate required type=number max=1 min=0 step="0.0001" ></td></tr>
+<tr class="parameters"><td><label for=momentum>Momentum</label></td><td><input id=momentum required type=number max=1 min=0 step="0.05" ></td></tr>
+<tr class="parameters"><td><label for=sharpness>Sharpness</label></td><td><input id=sharpness required type=number max=1 min=0 step="0.05" ></td></tr>
+<tr class="parameters"><td><label for=stoperror>Target Error</label></td><td><input id=stoperror required type=number min=0 step="0.0001" ></td></tr>
+
+<tr><td colspan=2 title="key names in processing functions should correspond to these names)"><hr>
+<label for=inputnames>Names of inputs (separated by spaces)</label><br/>
+<textarea id=inputnames >
+</textarea>
+<hr>
+<label for=outputnames>Names of outputs (separated by spaces))</label><br/>
+
+<textarea id=outputnames >
+</textarea>
+</td></tr>
+<tr><td colspan=2><hr>
+<label for=preprocessfunc>Preprocessing function (data row passed as object <i>row</i>, should return array of <span id=inputs></span> inputs followed (optionally) by <span id=outputs></span> outputs </label><br/>
+<pre> function (row) {</pre>
+<textarea data-var=processfunc id=preprocessfunc >
+</textarea>
+<pre>}</pre>
+</td></tr>
+<tr><td colspan=2><hr></td></tr>
+<tr><td colspan=2><label for=postprocessfunc>Postprocessing function (output passed as <i>output</i>, an array of length <span id=outputs2></span>)</label>
+</td></tr>
+<tr><td colspan=2>
+<pre> function (output) {</pre>
+<textarea id=postprocessfunc >
+</textarea>
+<pre>}</pre>
+</td></tr>
+<tr><td colspan=2><hr></td></tr>
+<tr><td colspan=2>
+
+<label for=rawtrainingdata>Training Data - comma separated list of items to be fed to preprocessing function above</label><br/>
+<textarea id=rawtrainingdata>
+</textarea>
+</td></tr>
+
+</table>
+</div>
+
+<h4>Calculate a Score</h4>
+<table id=tbl_inputnames></table>
+<hr>
+<button type=button onclick="calculate()">Calculate Score</button>
+<table id=tbl_outputnames></table>
+<button type=button class=training onclick="addtotraining()">Add to training set</button>
+</div>
+</div>
+　
+<footer class="footer" style="width:100%; max-width:800px; margin:0 auto; ">
+
+<hr />
+
+
+<p>
+
+
+
+</p>
+
+
+</footer>
+
+<script type="javascript/worker" id=webworker>
+
+//type not text/javascript so not run automatically - main script wraps this in a blob and starts it as a worker
+var topology = [];
+var inputs
+var outputs;
+var trainingdata;
+var rawtrainingdata;
+var learningrate;
+var momentum;
+var sharpness;
+var stoperror;
 
 var i;
 var layer;
@@ -55,6 +159,7 @@ var n2 = 0;
 
 
 var numlayers = topology.length;
+var maxneuronsperlayer = findMax(topology);
 var neurons = [];
 var errors = [];
 var toterror=0;
@@ -71,76 +176,40 @@ var startoflayer = [];
 
 initialiseNet();
 
-onmessage(function (obj){
+onmessage = function (evt){
+	var obj=evt.data;
+	//console.log(obj);
 	switch(obj.command) {
     	case "setup":
         	topology = obj.topology || topology;
-		inputs= topology[0];
-		outputs=topology[topology.length-1];
-		trainingdata=obj.trainingdata || trainingdata;
-		learningrate = obj.learningrate || learningrate;
-		momentum = obj.momentum || momentum;
-		sharpness = obj.sharpness || sharpness;
-		stoperror = obj.stoperror || stoperror;
+			inputs= topology[0];
+			outputs=topology[topology.length-1];
+			trainingdata=obj.trainingdata || trainingdata;
+			learningrate = obj.learningrate || learningrate;
+			momentum = obj.momentum || momentum;
+			sharpness = obj.sharpness || sharpness;
+			stoperror = obj.stoperror || stoperror;
+			numlayers=topology.length;
+			maxneuronsperlayer= findMax(topology);
+			initialiseNet();
         	break;
     	case "train":
         	trainMe()
        		break;
-	case "fire":
-		var results=[];
-		for (var n=startoflayer[numlayers-1] +1; n <= startoflayer[numlayers-1] + topology[numlayers-1]; n++){
-			results.push(neurons[n]);
-		};
+		case "fire":
+			var results=[];
+			for (var n=startoflayer[numlayers-1] +1; n <= startoflayer[numlayers-1] + topology[numlayers-1]; n++){
+				results.push(neurons[n]);
+			};
+			postMessage({status:'results',results:results});
     	default:
         	//code block
 	}
-} 
-})
+}
 	
 // === KEY FUNCTIONS ===
-
-
-function findMax(arr){
-    var m = -Infinity, i = 0, n = arr.length;
-    for (; i != n; ++i) {
-        if (arr[i] > m) {
-            m = arr[i];
-        }
-    }
-    return m;
-}
-
-
-function squash(value){
-	return (1/(1+Math.exp(-sharpness*value)));
-}
-
-
 function deriv(value){
 	return (0.1+value*(1-value)); //0.1 is Fahlman's modification to speed up training
-}
-
-
-
-function synapseindex(v1,v2){
-	return(v1*(maxneuronsperlayer+1)+v2);
-}
-
-
-function fire(){ //inputs set? ... fires the network
-	for (var layer=0;layer<numlayers-1;layer++){
-		var nextlayer = layer+1;
-		for (var n2 = startoflayer[nextlayer]+1; n2 <= startoflayer[nextlayer] + topology[nextlayer]; n2++) {
-		 	neurons[n2] = 0;
-		 	for (var n1 = startoflayer[layer]; n1 <= startoflayer[layer] + topology[layer]; n1++) {
-		 		if (n2!=startoflayer[nextlayer]){ //synapse not going to a bias neuron...
-		 			var si = synapseindex(n1,n2);
-					neurons[n2] += neurons[n1] * synapses[si];
-		 		}
-		 	}
-		 	neurons[n2] = squash(neurons[n2]);
-		}
-	}
 }
 
 function calculateoutputerrors(){ //error for each individual output layer
@@ -195,6 +264,9 @@ function debug(txt){
 
 // === SETUP ===
 function initialiseNet(){
+	var nx=0;
+	numlayers=topology.length;
+	maxneuronsperlayer= findMax(topology);
 	for (layer = 0; layer < numlayers; layer++) {
 		for (n1 = 0; n1 <= topology[layer]; n1++) {
 			if (n1 == 0){
@@ -262,33 +334,7 @@ function runOneEpoch(){
 }
 
 　
-function doNetTest(){
-	var results=[];
-	for (var i=0;i<trainingdata.length;i++){
-		let result=''
-		arr=trainingdata[i];
-		for (var index=0;index<inputs;index++){
-			neurons[index+1]=arr[index];
-		}
-		for (var index=0;index<outputs;index++){
-			expectedoutputs[index]=arr[inputs+index];
-		}
-		fire();
-		for (var n=startoflayer[0] +1; n <= startoflayer[0] + topology[0]; n++){
-			result = neurons[n].toFixed(0).toString() + ', ';
-		}
-		result += ' = ';
-		for (var n=startoflayer[numlayers-1] +1; n <= startoflayer[numlayers-1] + topology[numlayers-1]; n++){
-			result += neurons[n].toFixed(0).toString() + ', ';
-		}
-		results.push(result);
-	}
-	return results;
-}
 
-function numberWithCommas(x) {
-  return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-}
 　
 function reset(){
 	initialiseNet();
@@ -306,32 +352,108 @@ function trainMe(){
 		meanoutputerror = runOneEpoch();
 		epochx++;
 		if (epochx % 10 == 0){ //update every 10 epochs
-			self.postMessage({status:'update',
-					  error:meanoutputerror,
-					  epochs:epochx});
+			self.postMessage({status:'trainupdate',
+					  meanoutputerror:meanoutputerror,
+					  epochx:epochx,
+					  training:1});
 		}
-		if (meanoutputerror < stoperror) { 
+		if (meanoutputerror < stoperror || epochx >=50000) { 
 			training=0;
-			self.postMessage({status:'trained',epochs:epochx});
-		} else if (epochx >=50000){
-			self.postMessage({status:'trained',error:meanoutputerror});
-		}
+			self.postMessage({status:'trainupdate',
+					  meanoutputerror:meanoutputerror,
+					  epochx:epochx,
+					  training:0});
+			self.postMessage({status:'networkupdate',
+							  neurons:neurons,
+							  synapses:synapses,
+							  errors:errors});
+			
+		} 
+		
 	}		
 }
 
 </script>
 
-<script>
-var topology = [16,13,6];
-var inputs=16;
-var outputs=topology[topology.length-1];
-var trainingdata=[];
-trainingdata[0]=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];
-trainingdata[1]=[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1];
+<script id=common>
+function findMax(arr){
+    var m = -Infinity, i = 0, n = arr.length;
+    for (; i != n; ++i) {
+        if (arr[i] > m) {
+            m = arr[i];
+        }
+    }
+    return m;
+}
+
+
+function squash(value){
+	return (1/(1+Math.exp(-sharpness*value)));
+}
+
+function synapseindex(v1,v2){
+	return(v1*(maxneuronsperlayer+1)+v2);
+}
+
+
+function fire(){ //inputs set? ... fires the network
+	for (var layer=0;layer<numlayers-1;layer++){
+		var nextlayer = layer+1;
+		for (var n2 = startoflayer[nextlayer]+1; n2 <= startoflayer[nextlayer] + topology[nextlayer]; n2++) {
+		 	neurons[n2] = 0;
+		 	for (var n1 = startoflayer[layer]; n1 <= startoflayer[layer] + topology[layer]; n1++) {
+		 		if (n2!=startoflayer[nextlayer]){ //synapse not going to a bias neuron...
+		 			var si = synapseindex(n1,n2);
+					neurons[n2] += neurons[n1] * synapses[si];
+		 		}
+		 	}
+		 	neurons[n2] = squash(neurons[n2]);
+		}
+	}
+}
+
+</script>
+<script id=netparameters>
+var topology = [2,2,1];
+var rawtrainingdata=[
+	{x:0,y:0,result:0},
+	{x:0,y:1,result:1},
+	{x:1,y:0,result:1},
+	{x:1,y:1,result:0}];
 var learningrate = 0.8;
 var momentum = 0.9;
 var sharpness = 1;
 var stoperror = 0.0001;
+var preprocessfunc = "return [Number(row.x),Number(row.y),Number(row.result)];";
+var postprocessfunc ="return {result:output[0]};";
+var inputnames="x y";
+var outputnames="result";
+</script>
+
+<script id=browserscript>
+
+//wrap workerscript in a blob then launch it
+var workerscript=document.getElementById('webworker').innerHTML;
+var webworker= new Worker(URL.createObjectURL(new Blob([document.getElementById('common').innerHTML,document.getElementById('webworker').innerHTML],{type:'text/javascript'})));
+var traindisplay
+
+webworker.onmessage = function(e){
+	switch (e.data.status){
+		case 'trainupdate':
+			traindisplay(e.data.meanoutputerror,e.data.training);
+			break;
+		case 'networkupdate':
+			neurons=e.data.neurons;
+			synapses=e.data.synapses;
+			errors=e.data.errors;
+			drawNet();
+			}
+	}
+
+
+
+
+
 var c = document.getElementById("myCanvas");
 var ctx = c.getContext("2d");
 var op = document.getElementById("opCanvas");
@@ -345,6 +467,9 @@ var n2 = 0;
 var xpos = 0;
 var ypos = 0;
 
+var inputs=topology[0];
+var outputs=topology[topology.length-1];
+var trainingdata=[];
 var numlayers = topology.length;
 var maxneuronsperlayer = findMax(topology);
 var neurons = [];
@@ -373,27 +498,6 @@ drawNet();
 // === KEY FUNCTIONS ===
 
 
-function findMax(arr){
-    var m = -Infinity, i = 0, n = arr.length;
-    for (; i != n; ++i) {
-        if (arr[i] > m) {
-            m = arr[i];
-        }
-    }
-    return m;
-}
-
-
-function squash(value){
-	return (1/(1+Math.exp(-sharpness*value)));
-}
-
-
-function deriv(value){
-	return (0.1+value*(1-value)); //0.1 is Fahlman's modification to speed up training
-}
-
-
 function synapseColour(value){ //greys light to dark
 	value=squash(value); //to 0-1?
 	var shades=['d','c','a','8','6','4'];
@@ -409,70 +513,6 @@ function neuronColour(value){ //maps 0-1 to a shade of yellow (non-linear!)
 }
 
 
-function synapseindex(v1,v2){
-	return(v1*(maxneuronsperlayer+1)+v2);
-}
-
-
-function fire(){ //inputs set? ... fires the network
-	for (var layer=0;layer<numlayers-1;layer++){
-		var nextlayer = layer+1;
-		for (var n2 = startoflayer[nextlayer]+1; n2 <= startoflayer[nextlayer] + topology[nextlayer]; n2++) {
-		 	neurons[n2] = 0;
-		 	for (var n1 = startoflayer[layer]; n1 <= startoflayer[layer] + topology[layer]; n1++) {
-		 		if (n2!=startoflayer[nextlayer]){ //synapse not going to a bias neuron...
-		 			var si = synapseindex(n1,n2);
-					neurons[n2] += neurons[n1] * synapses[si];
-		 		}
-		 	}
-		 	neurons[n2] = squash(neurons[n2]);
-		}
-	}
-}
-
-function calculateoutputerrors(){ //error for each individual output layer
-	var thiserror=0;
-	for (var nx=0; nx < outputs; nx++){
-		var n = startoflayer[numlayers-1] +1 +nx;
-		errors[n] = expectedoutputs[nx] - neurons[n]; //each output error
-		errors[n] = errors[n] * deriv(neurons[n]); //?why do this. I got it from somewhere...
-		// toterror += Math.abs(errors[n]);
-		thiserror += Math.pow(errors[n],2);
-	}
-	toterror += 0.5 * thiserror;
-}
-
-function backpropagateerrors(){
-	for(layer=numlayers-2; layer>=0; layer--){ //move up the network from outputs to inputs
-		var nextlayer = layer+1;
-		for (n1=startoflayer[layer]; n1 <= startoflayer[layer] + topology[layer]; n1++){ //loop all layer
-			errors[n1] = 0;
-			for (n2=startoflayer[nextlayer] +1; n2 <= startoflayer[nextlayer] + topology[nextlayer]; n2++){
-				i = synapseindex(n1,n2);
-				errors[n1] += errors[n2] * synapses[i];
-			}
-			errors[n1] = errors[n1] * deriv(neurons[n1]);
-		}
-	}
-}
-
-function updatesynapseweights(){
-	for (layer=0;layer<numlayers-1;layer++){
-		var nextlayer = layer+1;
-		for (n1=startoflayer[layer]; n1 <= startoflayer[layer] + topology[layer]; n1++){ //loop all layer
-			// changes[n1]=0;
-			for (var n2 = startoflayer[nextlayer]; n2 <= startoflayer[nextlayer] + topology[nextlayer]; n2++) {
-				if (n2!=startoflayer[nextlayer]){ //not going to a bias neuron...
-					i = synapseindex(n1,n2);
-					changes[i] = neurons[n1] * errors[n2]; //prev += but synapses became huge...
-					changes[i] = (momentum * prevchanges[i]) + (1-momentum) * changes[i];
-					prevchanges[i] = changes[i]; //store for momentum calcs for next cycle
-					synapses[i] += learningrate * changes[i];
-				}
-			}
-		}
-	}
-}
 
 
 function debug(txt){
@@ -482,6 +522,11 @@ function debug(txt){
 
 // === SETUP ===
 function initialiseNet(){
+	numlayers=topology.length;
+	maxneuronsperlayer= findMax(topology);
+	inputs=topology[0];
+	outputs=topology[topology.length-1];
+	nx=0
 	for (layer = 0; layer < numlayers; layer++) {
 		for (n1 = 0; n1 <= topology[layer]; n1++) {
 			if (n1 == 0){
@@ -496,6 +541,16 @@ function initialiseNet(){
 		}
 	}
 	randomiseSynapses();
+	document.getElementById('inputs').innerHTML=inputs;
+	document.getElementById('outputs').innerHTML=outputs;
+	document.getElementById('outputs2').innerHTML=outputs;
+	webworker.postMessage(
+	{command:'setup',
+	 topology:topology,
+	 learningrate:learningrate,
+	 momentum:momentum,
+	 sharpness:sharpness,
+	 stoperror:stoperror})
 }
 　
 function randomiseSynapses(){
@@ -506,71 +561,44 @@ function randomiseSynapses(){
 		for (var n = 0; n <= topology[layer]; n++) {
 			for (var n2 = startoflayer[nextlayer]; n2 <= startoflayer[nextlayer] + topology[nextlayer]; n2++) {
 				i = synapseindex(n1,n2);
-				var randval=0.2 + 0.5 * Math.random();
-				if (Math.random() < 0.5){randval = 0 - randval;}
-				synapses[i]=randval;
+//				var randval=0.2 + 0.5 * Math.random();
+//				if (Math.random() < 0.5){randval = 0 - randval;}
+				synapses[i]=0.5;
 				changes[i]=0;
 				prevchanges[i]=0;
+				//console.log('randomised '+i+' to '+randval);
 			}
 			n1++;
 		}
 	}
 }
 
-
-function shuffleTrainingarray(array) {
-    for (var i = array.length - 1; i > 0; i--) {
-        var j = Math.floor(Math.random() * (i + 1));
-        var temp = array[i];
-        array[i] = array[j];
-        array[j] = temp;
-    }
-}
-　
-function runOneEpoch(){
-	shuffleTrainingarray(trainingdata);
-	toterror=0;
-	for (var i=0;i<trainingdata.length;i++){
-		var arr=trainingdata[i];
-		for(var index=0; index<inputs; index++){
-			neurons[index+1]=parseFloat(arr[index]);
-		}
-		for (index=0;index<outputs;index++){
-			expectedoutputs[index]=parseFloat(arr[inputs+index]);
-		}
-		fire();
-		calculateoutputerrors();
-
-		backpropagateerrors();
-		updatesynapseweights();
-	}
-	// toterror = toterror / topology[numlayers-1];
-	return(toterror);
-}
-
 　
 function showNetTest(){
 	var results='';
 	for (var i=0;i<trainingdata.length;i++){
-		arr=trainingdata[i];
-		for (var index=0;index<inputs;index++){
-			neurons[index+1]=arr[index];
-		}
-		for (var index=0;index<outputs;index++){
-			expectedoutputs[index]=arr[inputs+index];
-		}
-		fire();
-		for (var n=startoflayer[0] +1; n <= startoflayer[0] + topology[0]; n++){
-			results += neurons[n].toFixed(0).toString() + ', ';
-		}
+		var arr=trainingdata[i].slice(0,inputs);
+		fixAndString=function(x){return x.toFixed(0).toString();}
+		results += arr.map(fixAndString).join();
 		results += ' = ';
-		for (var n=startoflayer[numlayers-1] +1; n <= startoflayer[numlayers-1] + topology[numlayers-1]; n++){
-			results += neurons[n].toFixed(0).toString() + ', ';
-		}
+		results += runOneSet(arr).map(fixAndString).join();
 		results += '<br />';
 	}
 	trainedResults.innerHTML = "<hr />Testing trained net...<br />"+results;
 }
+
+function runOneSet(arr){
+	var l1
+	var l2
+	l1=neurons.length
+	neurons.splice.apply(neurons,[1,inputs].concat(arr));
+	
+	fire();
+	console.log(''+l1+' + '+neurons.length);
+	retval = neurons.slice(startoflayer[numlayers-1]+1,startoflayer[numlayers-1] + topology[numlayers-1]+1);	
+	console.log(retval);
+	return retval;
+	}
 
 function numberWithCommas(x) {
   return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
@@ -581,8 +609,13 @@ function reset(){
 	drawNet();
 }
 
+
 function trainMe(){
-	randomiseSynapses();
+	trainingdata=rawtrainingdata.map(Function('row',preprocessfunc))
+	console.log(preprocessfunc);
+	console.log(trainingdata);
+	webworker.postMessage({command:'setup',trainingdata:trainingdata});
+	webworker.postMessage({command:'train'});
 	var training = 1; //bool
 	toterror=0;
 	meanoutputerror = 0;
@@ -594,59 +627,69 @@ function trainMe(){
 	var thisY=0;
 	var prevY=0;
 	if (epochx==0){ //start training loop
-		var loop = setInterval(function() { // 1ms outer loop
-			for (var innerx=0;innerx<100;innerx++){ //run 10 inner loops in that millisecond
-				if (training==1){
-					meanoutputerror = runOneEpoch();
-					epochx++;
-					if (epochCounter != null){epochCounter.innerHTML = numberWithCommas(epochx); }
-					if (epochx % 10 == 0){ //update every 10 epochs
-						var borderWidth = (1350 * meanoutputerror).toFixed(0);
-						if (borderWidth > 90){
-							borderWidth=90;
-						}
-						if (errorOutput != null){ errorOutput.innerHTML = (13 * meanoutputerror).toFixed(2); }
-　
-						thisY=100-borderWidth;
-						ctxOutput.clearRect(outputX+1,0,60,100);
-						ctxOutput.strokeStyle = 'Pink';
-						ctxOutput.beginPath();
-						ctxOutput.moveTo(outputX,100);
-						ctxOutput.lineTo(outputX,thisY);
-						ctxOutput.stroke();
-						ctxOutput.strokeStyle = 'Red';
-						ctxOutput.beginPath();
-						ctxOutput.moveTo(outputX,thisY);
-						ctxOutput.lineTo(outputX-1,prevY);
-						ctxOutput.stroke();
-						outputX++;
-						prevY=thisY;
-						if (outputX==800){outputX=0;}
-						topMargin = 100 - borderWidth;
-					}
-					if (meanoutputerror < stoperror || epochx >= 50000){
-						training=0;
-						clearInterval(loop);
-						if (trained != null && meanoutputerror < stoperror){
-							trained.innerHTML = 'Trained!';
-							trained.style.backgroundColor = "lime";
-						} else {
-							trained.innerHTML = 'Failed to train';
-							trained.style.backgroundColor = "pink";
-						}
-						if (epochCounter != null){epochCounter.innerHTML = numberWithCommas(epochx);}
-						if (errorOutput != null){errorOutput.innerHTML = meanoutputerror.toFixed(2);}
-						showNetTest();
-					}
+		traindisplay = function(meanoutputerror,training) { 
+			if (training==1){
+				epochx++;
+				if (epochCounter != null){epochCounter.innerHTML = numberWithCommas(epochx); }
+				var borderWidth = (1350 * meanoutputerror).toFixed(0);
+				if (borderWidth > 90){
+					borderWidth=90;
 				}
+				if (errorOutput != null){ errorOutput.innerHTML = (13 * meanoutputerror).toFixed(2); }
+　
+				thisY=100-borderWidth;
+				ctxOutput.clearRect(outputX+1,0,60,100);
+				ctxOutput.strokeStyle = 'Pink';
+				ctxOutput.beginPath();
+				ctxOutput.moveTo(outputX,100);
+				ctxOutput.lineTo(outputX,thisY);
+				ctxOutput.stroke();
+				ctxOutput.strokeStyle = 'Red';
+				ctxOutput.beginPath();
+				ctxOutput.moveTo(outputX,thisY);
+				ctxOutput.lineTo(outputX-1,prevY);
+				ctxOutput.stroke();
+				outputX++;
+				prevY=thisY;
+				if (outputX==800){outputX=0;}
+				topMargin = 100 - borderWidth;
+			} else {
+				if (trained != null && meanoutputerror < stoperror){
+					trained.innerHTML = 'Trained!';
+					trained.style.backgroundColor = "lime";
+				} else {
+					trained.innerHTML = 'Failed to train';
+					trained.style.backgroundColor = "pink";
+				}
+				if (epochCounter != null){epochCounter.innerHTML = numberWithCommas(epochx);}
+				if (errorOutput != null){errorOutput.innerHTML = meanoutputerror.toFixed(2);}
+				showNetTest();
 			}
 			drawNet();
-		}, 1);
+		}
 	}
 }
 
 
-function drawNet(){
+function drawNet(){//topology,neurons,synapses){
+	var numlayers = topology.length;
+	var maxneuronsperlayer = findMax(topology);
+	
+	var startoflayer = [];
+	n1=0;
+	for (var i=0;i<topology.length;i++){
+		startoflayer.push(n1);
+		n1+=topology[i]+1
+		}
+	//console.log(JSON.stringify(startoflayer));
+		
+	var xgap = 600 / (maxneuronsperlayer + 1);
+
+
+	var ygap = (600 / numlayers) - 10;
+
+
+	var topmargin = 30;
 	ctx.clearRect(0,0,800,600);
 	// === draw synapses
 	n1 = 0;
@@ -661,6 +704,7 @@ function drawNet(){
 				var nextlayerxpos = leftmarginnextlayer + (n2-startoflayer[nextlayer]) * xgap;
 				if (n2!=startoflayer[nextlayer]){ //not going to a bias neuron...
 					i = synapseindex(n1,n2);
+					//console.log(i+':'+synapses[i]);
 					// ctx.strokeStyle = doShade(synapses[i]);
 					ctx.strokeStyle = synapseColour(synapses[i]);
 					ctx.beginPath();
@@ -709,124 +753,129 @@ function drawNet(){
 	}
 }
 　
+function changesettings(element){
+	var value;
+	
+	element = element.srcElement || element;
+	console.log(element);
+	if (element.validity && element.validity.valid){
+		switch (element.id){
+			case 'topology':
+			case 'rawtrainingdata':
+				value=JSON.parse('['+element.value+']');
+				break;
+			case 'preprocessfunc':
+			case 'postprocessfunc':
+				value=element.value;
+				break;
+			case 'inputnames':
+			case 'outputnames':
+				var targetdiv=document.getElementById('tbl_'+element.id);
+				filterfunc=function(e){return e};
+				mapfunc=function(e){
+					var newinput=document.createElement('input');
+					var newlabel=document.createElement('label');
+					var newtr=document.createElement('tr');
+					var newtd=[document.createElement('td'),document.createElement('td')]
+					newinput.id='values_'+e;
+					newlabel.for=newinput.id;
+					newlabel.appendChild(document.createTextNode(e));
+					newtd[0].appendChild(newlabel);
+					newtd[1].appendChild(newinput);
+					newtr.appendChild(newtd[0]);
+					newtr.appendChild(newtd[1]);
+					targetdiv.appendChild(newtr);
+					}
+				if (targetdiv.hasChildNodes()){while(targetdiv.removeChild(targetdiv.childNodes[0])){}};
+					
+					
+					
+				element.value.split(' ').filter(filterfunc).map(mapfunc);
+				value=element.value;
+				break;
+			default:
+				value=Number(element.value);
+		}
+		window[element.id]=value;
+		initialiseNet();
+		drawNet();
+	} else {
+		switch (element.id){
+		case 'topology':
+		case 'rawtrainingdata':
+			value=window[element.id].join();
+			break;
+		default:
+			value=window[element.id];
+		}
+		element.value=value;
+	}
+}
+function calculate(){
+	var inputnamesarray=inputnames.split(' ').filter(function(s){return s});
+	var outputnamesarray=outputnames.split(' ').filter(function(s){return s});
+	var inputobject={};
+	for (var i=0;i<inputnamesarray.length;i++){
+		inputobject[inputnamesarray[i]]=document.getElementById('values_'+inputnamesarray[i]).value;
+	}
+	var rowinputs=Function('row',preprocessfunc)(inputobject).slice(0,inputs);
+	
+	var outputobject=Function('output',postprocessfunc)(runOneSet(rowinputs));
+	for (var i=0;i<outputnamesarray.length;i++){
+		document.getElementById('values_'+outputnamesarray[i]).value=outputobject[outputnamesarray[i]];
+	}
+	console.log(outputobject);
+}
+
+function addtotraining(){
+	var inputnamesarray=inputnames.split(' ').filter(function(s){return s});
+	var outputnamesarray=outputnames.split(' ').filter(function(s){return s});
+	var dataobject={};
+	for (var i=0;i<inputnamesarray.length;i++){
+		dataobject[inputnamesarray[i]]=document.getElementById('values_'+inputnamesarray[i]).value;
+	}
+	for (var i=0;i<outputnamesarray.length;i++){
+		dataobject[outputnamesarray[i]]=document.getElementById('values_'+outputnamesarray[i]).value;
+	}
+	rawtrainingdata.push(dataobject);
+	document.getElementById('rawtrainingdata').value=rawtrainingdata.map(JSON.stringify).join()
+}
+
+function changedisplay(element){
+	var css={design:document.getElementById('designmode'),training:document.getElementById('trainingmode'),calculate:document.getElementById('calculatemode')}
+	css.design.disabled=true;
+	css.training.disabled=true;
+	css.calculate.disabled=true;
+	css[element.value].disabled=false;
+		}
+
+document.getElementById("preprocessfunc").value = preprocessfunc;
+document.getElementById("postprocessfunc").value = postprocessfunc;
+document.getElementById("inputnames").value = inputnames;
+document.getElementById("outputnames").value = outputnames;
+document.getElementById("rawtrainingdata").value = rawtrainingdata.map(JSON.stringify).join(',\n');
+
+document.querySelectorAll('tr.parameters input').forEach(function(e){
+	changesettings(e);
+	e.addEventListener('change',changesettings);
+	});
+document.querySelectorAll('textarea').forEach(function(e){
+	changesettings(e);
+	e.addEventListener('blur',changesettings);
+	});
+
 </script>
-
-<div>
-<span id="trained" class="button" onclick="trainMe()" >Train Me</span>
-&nbsp;&nbsp;
-Epochs: <span id="epochs">0</span>
-&nbsp;&nbsp;
-Output error: <span id="meanerror"></span>
-<div id="trainedResults"></div>
-</div>
-</div>
-　
-<h4 style="margin-bottom:12px; ">ASAi-Risk Scoring</h4>
-<p>
-	Anaesthetic risk assessment using a Deep Neural Network which encapsulates the assessments of experienced anaesthetists. 
-	Using a rolling time-frame of retraining, ASAi-Risk scores are kept up-to-date while anaesthetic, surgical, and nursing practices evolve. 
-	The full methodology is published here.
-</p>
-<p>
-	ASAi-Risk scores can be based on as many or as few inputs as required. The system will warn you if the inputs are insufficient for a score.
-	An ASAi-Risk score goes from 1 (minimal) to 5 (extremely high) in increments of 0.1
-</p>
-　
-<h5>Inputs</h5>
-<ul>
-<li>Exercise tolerance</li>
-<li>Age</li>
-<li>Conscious level</li>
-<li>Respiratory impairment</li>
-<li>Cardiovascular impairment</li>
-<li>Laboratory values</li>
-</ul>
-　
-<h5>Outputs</h5>
-<ul>
-
-<li>Mortality risk</li>
-<li>Respiratory complications risk</li>
-<li>Cardiovascular complications risk</li>
-<li>Infective complications risk</li>
-<li>Thrombotic complications risk</li>
-<li>Bleeding complications risk</li>
-</ul>
-　
-<h5>ANN Settings</h5>
-<ul>
-<li>topology = 16,13,6</li>
-<li>learning rate = 0.8</li>
-<li>momentum = 0.9</li>
-<li>sharpness = 1</li>
-<li>error target = 0.0001</li>
-</ul>
-<p>
-	ASAi inputs are either discrete or continuous variables: so there can be no dramatic changes to a score when an input value (such as serum albumin) 
-	crosses a threshold because such thresholds do not exist. 
-</p>
-
-
-<p>
-
-	Previous ASAi networks can be used if you want to calculate a score using the prevailing anaesthetic assessment thinking of an earlier time. 
-	Serial test case scores are published here so the evolving behaviour of the ASAi Network can be tracked.
-</p>
-
-
-<h4>Calculate a Score</h4>
-<br />
-<br />
-</div>
-</div>
-　
-<footer class="footer" style="width:100%; max-width:800px; margin:0 auto; ">
-
-<hr />
-
-
-<p>
-
-
-Website &copy; Alan Hope 2018
-
-
-</p>
-
-
-</footer>
-
-
 <script>
 
-
 function doAjax(ajaxfile,msg) {
-
-
   var xmlhttp = new XMLHttpRequest();
-
-
   xmlhttp.onreadystatechange = function() {
-
-
     if (this.readyState == 4 && this.status == 200) {
-
-
       doSomethingWithResponse(this.responseText);
-
-
     }
-
-
   };
-
-
   xmlhttp.open("GET", ajaxfile + "?msg=" + msg, true);
-
-
   xmlhttp.send();
-
-
 }
 
 
